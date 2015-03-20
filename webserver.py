@@ -10,8 +10,12 @@ from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
  
-Base = declarative_base()
- 
+from database_setup import Restaurant, Base, MenuItem
+
+
+
+
+
 ##Stablish the link with DB
 engine = create_engine('sqlite:///restaurantmenu.db')
 ##Create a session that is bind to the database "engine"
@@ -19,14 +23,6 @@ DBSession = sessionmaker(bind = engine)
 #Stablish a session name as "session"
 session = DBSession()
 #Fetch all restaurants an store in a variable named restaurants
-
- ##Creating restaurant class to be able to interactve with it
-class Restaurant(Base):
-    __tablename__ = 'restaurant'
-   
-    id = Column(Integer, primary_key=True)
-    name = Column(String(250), nullable=False)
- 
 
 class webServerHandler(BaseHTTPRequestHandler):
 	def do_GET(self):
@@ -56,6 +52,27 @@ class webServerHandler(BaseHTTPRequestHandler):
 				self.wfile.write(output)
 				print output
 				return
+			##If entering to EDIT restaurant link
+			if self.path.endswith("/edit"):
+				#Get the id from the URL
+				restaurantIDPath = self.path.split("/")[2]
+				#Query the restaurant to get just the one with that id
+				myRestaurantQuery = session.query(Restaurant).filter_by(
+                    id=restaurantIDPath).one()
+				if myRestaurantQuery:
+					self.send_response(200)
+					self.send_header('Content-type', 'text/html')
+					self.end_headers()
+					output = "<html><body>"
+					output += "<h1>"
+					output += myRestaurantQuery.name
+					output += "</h1>"
+					output += "<form method='POST' enctype='multipart/form-data' action = '/restaurants/%s/edit' >" % restaurantIDPath
+					output += "<input name = 'newRestaurantName' type='text' placeholder = '%s' >" % myRestaurantQuery.name
+					output += "<input type = 'submit' value = 'Rename'>"
+					output += "</form>"
+					output += "</body></html>"
+					self.wfile.write(output)
 
 			##When /restaurant is acceded.
 			if self.path.endswith("/restaurant"):
@@ -72,7 +89,8 @@ class webServerHandler(BaseHTTPRequestHandler):
 					output += "<h1>" + restaurant.name + "</h1>"
 					output += "<a href=#>Delete</a>"
 					output += "<br>"
-					output += "<a href=#>Edit</a>"
+					##Return the id in the link for edit - Has to be converted to string
+					output += "<a href= 'restaurants/%s/edit'>Edit</a>" % restaurant.id
 				output += "</body></html>"
 				self.wfile.write(output)
 				print output
@@ -98,6 +116,27 @@ class webServerHandler(BaseHTTPRequestHandler):
 
 	def do_POST(self):
 		try:
+
+			##Catch the post for EDIT
+			if self.path.endswith("/edit"):
+				ctype, pdict = cgi.parse_header(
+					self.headers.getheader('content-type'))
+				if ctype == 'mulitpart/form-data':
+					fields = cgi.parse_multipart(self.rfile, pdict)
+					messagecontent = fields.get('newRestaurantName')
+					restaurantIDPath = self.path.split("/")[2]
+
+					myRestaurantQuery = session.query(Restaurant).filter_by(
+						id=restaurantIDPath).one()
+					if myRestaurantQuery != []:
+						myRestaurantQuery.name = messagecontent[0]
+						session.add(myRestaurantQuery)
+						session.commit()
+						self.send_response(301)
+						self.send_header('Content-type', 'text/html')
+						self.send_header('Location', '/restaurants')
+						self.end_headers()
+
 			if self.path.endswith("/restaurant/new"):
 				ctype, pdict = cgi.parse_header(self.headers.getheader('content-type'))
 			if ctype == 'multipart/form-data':
@@ -114,19 +153,6 @@ class webServerHandler(BaseHTTPRequestHandler):
 				self.send_header('content-type', 'text/html')
 				self.send_header('Location', '/restaurant')
 				self.end_headers()
-			
-				#ctype, pdict = cgi.parse_header(self.headers.getheader('content-type'))
-				#if ctype == 'multipart/form-data':
-				#	fields=cgi.parse_multipart(self.rfile, pdict)
-				#	messagecontent = fields.get('message')
-				#output = ""
-				#output +=  "<html><body>"
-				#output += " <h2> Okay, how about this: </h2>"
-				#output += "<h1> %s </h1>" % messagecontent[0]
-				#output += '''<form method='POST' enctype='multipart/form-data' action='/hello'><h2>What would you like me to say?</h2><input name="message" type="text" ><input type="submit" value="Submit"> </form>'''
-				#output += "</html></body>"
-				#self.wfile.write(output)
-				#print output
 		except:
 			pass
 
