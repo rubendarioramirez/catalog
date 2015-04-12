@@ -91,7 +91,7 @@ def gconnect():
     return response
     
   # Store the access token in the session for later use.
-  login_session['credentials'] = credentials
+  login_session['credentials'] = credentials.access_token
   login_session['gplus_id'] = gplus_id
   response = make_response(json.dumps('Successfully connected user.', 200))
   
@@ -108,13 +108,12 @@ def gconnect():
  
   output = ''
   output +='<h1>Welcome, '
-  output += login_session['username']
+  output += login_session['username'] 
   output += '!</h1>'
   output += '<img src="'
   output += login_session['picture']
   output +=' " style = "width: 300px; height: 300px;border-radius: 150px;-webkit-border-radius: 150px;-moz-border-radius: 150px;"> '
   flash("you are now logged in as %s"%login_session['username'])
-  print "done!"
   return output
 
 @app.route('/restaurants/<int:restaurant_id>/menu/JSON')
